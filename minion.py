@@ -41,11 +41,24 @@ async def on_ready():
     submit_channel = bot.get_channel(SUBMIT_TASK_CHANNEL_ID)
     await submit_channel.purge(limit=100)  # Clears previous messages
 
+    # Get the category and delete all other channels within it
+    category = bot.get_channel(SUBMIT_CATEGORY_ID)
+    if category:
+        for channel in category.text_channels:
+            if channel.id != SUBMIT_TASK_CHANNEL_ID:
+                await channel.delete(reason="Cleaning up on bot restart")
+
     message_content = (
-        "Dear Applicants,\n\n"
-        "If you have a task to submit, please press the 'Submit Task' button below. "
-        "This will create a private channel for you to submit your task, and don't worry, I will assist you in the process."
+        "Greetings Applicant,\n\n"
+        "Should you need to submit a task, kindly click the '**Submit Task**' button below.\n "
+        "A private channel will be allocated for your submission. Rest assured, you won't be alone;\n "
+        "I'll be there to assist you throughout your submission process."
     )
+    view = SubmitView()
+    await submit_channel.send(message_content, view=view)
+
+
+
  
 
 
@@ -227,9 +240,38 @@ async def task_list(ctx):
 
 
 
-
+#SUBMIT
 SUBMIT_TASK_CHANNEL_ID = 1233454738285264927  
 SUBMIT_CATEGORY_ID = 1233454642550280312 
+
+class SubmitView(discord.ui.View):
+    @discord.ui.button(label="Submit Task", style=discord.ButtonStyle.green, custom_id="submit_task_button")
+    async def submit_button_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+        if interaction.guild is None:
+            await interaction.response.send_message("This feature is not available in DMs.", ephemeral=True)
+            return
+
+        category = interaction.guild.get_channel(SUBMIT_CATEGORY_ID)
+        if not category:
+            await interaction.response.send_message("Error: Submission category not found. Please contact an administrator.", ephemeral=True)
+            return
+
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            interaction.user: discord.PermissionOverwrite(read_messages=True),
+            bot.user: discord.PermissionOverwrite(read_messages=True)
+        }
+
+        channel_name = f"submission-{interaction.user.display_name.lower().replace(' ', '-')}"
+        private_channel = await interaction.guild.create_text_channel(name=channel_name, category=category, overwrites=overwrites)
+        await send_greeting(private_channel, interaction.user)
+        view = DepartmentSelect(interaction.user, private_channel)
+        await private_channel.send("Please select the department for which you are making a submission:", view=view)
+
+        # Continue with the auto-delete setup
+        await asyncio.sleep(600)  # Sleep for 600 seconds (10 minutes)
+        await private_channel.delete(reason="Auto-delete after 10 minutes")
+
 
 
 async def send_greeting(channel, user):
@@ -238,10 +280,76 @@ async def send_greeting(channel, user):
         f"DANGER! {user.mention}, proceed only if you're ready to submit. This channel will self-destruct in 10 minutes.",
         f"Ah, {user.mention}! The stage is set, the lights are on, and you've got 10 minutes to shine before this channel closes.",
         f"Welcome, {user.mention}! Don't mind the mess; I'm just making room for your awesome submission. Just so you know, this channel will vanish in 10 minutes.",
-        f"Look who's here! {user.mention}, ready to drop another masterpiece? Make it quick, though; this channel is on a 10-minute timer!"
+        f"Look who's here! {user.mention}, ready to drop another masterpiece? Make it quick, though; this channel is on a 10-minute timer!",
+        f"Hello {user.mention}, your private podium awaits! You have 10 minutes to deliver your brilliance before the curtains close.",
+        f"Hey {user.mention}, ready to rock the stage? You've got 10 minutes to wow us, starting now!",
+        f"Enter the spotlight, {user.mention}! You have a brief window of 10 minutes to leave your mark.",
+        f"Ready, set, go {user.mention}! Your mission, should you choose to accept it, lasts only 10 minutes. Make them count!",
+        f"Tick-tock, {user.mention}! The countdown of 10 minutes begins now. Let’s see what you've got!"
     ]
     greeting = random.choice(greetings)
     await channel.send(greeting)
+
+class DepartmentSelect(discord.ui.View):
+    def __init__(self, user, channel):
+        super().__init__()
+        self.user = user
+        self.channel = channel  # Store the channel where this view is used
+
+    @discord.ui.select(
+        placeholder="Choose your department",
+        min_values=1,
+        max_values=1,
+        options=[
+            discord.SelectOption(label="Content Department", description="Submit your content tasks", value="Content"),
+            discord.SelectOption(label="Event Moderation Department", description="Submit your event moderation tasks", value="Event Moderation"),
+            discord.SelectOption(label="ETA Department", description="Submit your ETA tasks", value="ETA"),
+            discord.SelectOption(label="Graph/IT Department", description="Submit your Graph/IT tasks", value="Graph/IT"),
+        ]
+    )
+    async def select_callback(self, interaction: discord.Interaction, select: discord.ui.Select):
+        self.user_selection = select.values[0]
+        await interaction.response.send_message(f"You have selected the {self.user_selection} department.", ephemeral=True)
+        prompt_message = await self.channel.send(f"{interaction.user.mention}, please type down the task ID for your submission in the {self.user_selection} department.")
+        # Set the state as awaiting a task ID
+        awaiting_task_id[self.channel.id] = self.user_selection
+        self.stop()
+
+
+awaiting_task_id = {}
+
+@bot.event
+async def on_message(message):
+    if message.author.bot or not message.content:
+        return
+
+    # Check if this channel is expecting a task ID
+    if message.channel.id in awaiting_task_id:
+        department = awaiting_task_id[message.channel.id]
+        task_id = message.content.strip()
+        task_channel_name = f"{department.lower()}-tasks"
+        task_channel = discord.utils.get(message.guild.text_channels, name=task_channel_name)
+
+        # Verify task ID
+        task_description = None
+        async for msg in task_channel.history(limit=200):  # Limit might be adjusted based on actual usage
+            if f"[Task ID: {task_id}]" in msg.content:
+                start = msg.content.find(':') + 2
+                end = msg.content.find(' [')
+                task_description = msg.content[start:end]
+                break
+
+        if task_description:
+            await message.channel.send(f"Your Task ID is verified!\nYou are submitting for the task: {task_description}")
+            # Clear the state indicating awaiting task ID
+            del awaiting_task_id[message.channel.id]
+        else:
+            await message.channel.send("Task ID not found. Please enter a valid task ID.")
+
+    # Regular message handling
+    await bot.process_commands(message)
+
+        
 
 
 
