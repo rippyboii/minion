@@ -38,15 +38,31 @@ RESPONSES = [
 @bot.event
 async def on_ready():
     print(f"We have logged in as {bot.user}")
+    category = bot.get_channel(SUBMIT_CATEGORY_ID)
+    
+    if category:
+        # Iterate over all channels within the specified category
+        for channel in category.channels:
+            if channel.id != SUBMIT_TASK_CHANNEL_ID:
+                await channel.delete()
+                print(f"Deleted channel {channel.name}")
+    
     submit_channel = bot.get_channel(SUBMIT_TASK_CHANNEL_ID)
-    await submit_channel.purge(limit=100)  # Clears previous messages
+    if submit_channel:
+        await submit_channel.purge(limit=None)  # Clears all messages in the submission channel
+        message_content = (
+            "Greetings, Applicant!\n\n"
+            "Welcome to the dedicated task submission channel. If you have work to submit, you're in the right place! "
+            "Simply click the 'Submit Task' button below to begin. A quiet, dedicated channel will be created specifically for your submission. "
+            "Don't worry—I'll be there to guide you every step of the way."
+        )
 
-    message_content = (
-        "Dear Applicants,\n\n"
-        "If you have a task to submit, please press the 'Submit Task' button below. "
-        "This will create a private channel for you to submit your task, and don't worry, I will assist you in the process."
-    )
- 
+        view = View()
+        view.add_item(SubmitTaskButton())
+        await submit_channel.send(message_content, view=view)
+    else:
+        print("Error: Submit channel not found.")
+
 
 
 @bot.event
@@ -232,17 +248,54 @@ SUBMIT_TASK_CHANNEL_ID = 1233454738285264927
 SUBMIT_CATEGORY_ID = 1233454642550280312 
 
 
-async def send_greeting(channel, user):
-    greetings = [
-        f"Ooof, I was exactly waiting for your submission, {user.mention}! Remember, you have 10 minutes to complete this task before this channel disappears.",
-        f"DANGER! {user.mention}, proceed only if you're ready to submit. This channel will self-destruct in 10 minutes.",
-        f"Ah, {user.mention}! The stage is set, the lights are on, and you've got 10 minutes to shine before this channel closes.",
-        f"Welcome, {user.mention}! Don't mind the mess; I'm just making room for your awesome submission. Just so you know, this channel will vanish in 10 minutes.",
-        f"Look who's here! {user.mention}, ready to drop another masterpiece? Make it quick, though; this channel is on a 10-minute timer!"
-    ]
-    greeting = random.choice(greetings)
-    await channel.send(greeting)
+class SubmitTaskButton(Button):
+    def __init__(self):
+        super().__init__(style=ButtonStyle.green, label="Submit Task", custom_id="submit_task")
+
+    async def callback(self, interaction):
+        # Get the category where the channel will be created
+        category = bot.get_channel(SUBMIT_CATEGORY_ID)
+        if not category:
+            await interaction.response.send_message("Error: Submission category not found.", ephemeral=True)
+            return
+
+        # Create a private channel within the specified category
+        overwrites = {
+            interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            interaction.user: discord.PermissionOverwrite(read_messages=True)
+        }
+        channel = await interaction.guild.create_text_channel(f"submission-{interaction.user.display_name}", category=category, overwrites=overwrites)
+        
+        # Send a greeting in the newly created channel
+        await self.send_greeting(channel, interaction.user)
+
+        # Respond to the interaction
+        await interaction.response.send_message(f"A private submission channel has been created for you: {channel.mention}", ephemeral=True)
+
+        # Schedule the channel to be deleted after 10 minutes
+        await asyncio.sleep(600)  # Wait for 10 minutes
+        await channel.delete()
+
+    @staticmethod
+    async def send_greeting(channel, user):
+        greetings = [
+            f"Ooof, I was exactly waiting for your submission, {user.mention}! 😄 Remember, you have 10 minutes to complete this task before this channel disappears. ⏳",
+            f"DANGER! {user.mention}, proceed only if you're ready to submit. This channel will self-destruct in 10 minutes. 💥",
+            f"Ah, {user.mention}! The stage is set, the lights are on, and you've got 10 minutes to shine before this channel closes. 🌟",
+            f"Welcome, {user.mention}! Don't mind the mess; I'm just making room for your awesome submission. Just so you know, this channel will vanish in 10 minutes. 🚀",
+            f"Look who's here! {user.mention}, ready to drop another masterpiece? Make it quick, though; this channel is on a 10-minute timer! 🎨",
+            f"Hello {user.mention}, your private podium awaits! You have 10 minutes to deliver your brilliance before the curtains close. 🎭",
+            f"Hey {user.mention}, ready to rock the stage? You've got 10 minutes to wow us, starting now! 🎸",
+            f"Enter the spotlight, {user.mention}! You have a brief window of 10 minutes to leave your mark. 🌟",
+            f"Ready, set, go {user.mention}! Your mission, should you choose to accept it, lasts only 10 minutes. Make them count! ⌛",
+            f"Tick-tock, {user.mention}! The countdown of 10 minutes begins now. Let’s see what you've got! ⏰"
+        ]
+        greeting = random.choice(greetings)
+        await channel.send(greeting)
+
+
 
 
 
 bot.run(TOKEN)
+
