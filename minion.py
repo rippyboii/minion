@@ -58,10 +58,12 @@ async def on_ready():
         )
 
         view = View()
-        view.add_item(SubmitTaskButton())
+        submit_button = SubmitTaskButton()
+        view.add_item(submit_button)
         await submit_channel.send(message_content, view=view)
     else:
         print("Error: Submit channel not found.")
+
 
 
 
@@ -250,32 +252,40 @@ SUBMIT_CATEGORY_ID = 1233454642550280312
 
 class SubmitTaskButton(Button):
     def __init__(self):
-        super().__init__(style=ButtonStyle.green, label="Submit Task", custom_id="submit_task")
+        # Ensure label, style, and custom_id are set during initialization
+        super().__init__(label="Submit Task", style=ButtonStyle.green, custom_id="submit_task")
 
-    async def callback(self, interaction):
-        # Get the category where the channel will be created
+    async def callback(self, interaction: discord.Interaction):
         category = bot.get_channel(SUBMIT_CATEGORY_ID)
         if not category:
             await interaction.response.send_message("Error: Submission category not found.", ephemeral=True)
             return
 
-        # Create a private channel within the specified category
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True)
         }
         channel = await interaction.guild.create_text_channel(f"submission-{interaction.user.display_name}", category=category, overwrites=overwrites)
         
-        # Send a greeting in the newly created channel
         await self.send_greeting(channel, interaction.user)
-
-        # Respond to the interaction
         await interaction.response.send_message(f"A private submission channel has been created for you: {channel.mention}", ephemeral=True)
+
+        # Send the department select view
+        view = DepartmentView()
+        await channel.send("Please select the department for which this task is intended:", view=view)
+
+        # Wait for the department to be selected or for the view to timeout
+        await view.wait()
+        if view.department:
+            # The user has selected a department, continue with further processing
+            await channel.send(f"Department {view.department} selected. You can now proceed with your submission details.")
+        else:
+            # No selection made, or the view timed out
+            await channel.send("No department selected, please restart the submission process.")
 
         # Schedule the channel to be deleted after 10 minutes
         await asyncio.sleep(600)  # Wait for 10 minutes
         await channel.delete()
-
     @staticmethod
     async def send_greeting(channel, user):
         greetings = [
@@ -293,6 +303,29 @@ class SubmitTaskButton(Button):
         greeting = random.choice(greetings)
         await channel.send(greeting)
 
+class DepartmentSelect(discord.ui.Select):
+    def __init__(self):
+        # Set the options that will be available in the dropdown
+        options=[
+            discord.SelectOption(label="Content Department", description="Submit tasks for content creation."),
+            discord.SelectOption(label="ETA Department", description="Submit tasks for educational and training activities."),
+            discord.SelectOption(label="Event Moderation Department", description="Submit tasks related to event management and moderation."),
+            discord.SelectOption(label="Graph/IT Department", description="Submit tasks for IT and graphic design.")
+        ]
+
+        super().__init__(placeholder="Choose the department for your task...",
+                         min_values=1, max_values=1, options=options)
+
+    async def callback(self, interaction: discord.Interaction):
+        # Store the selected option
+        self.view.department = self.values[0]
+        await interaction.response.send_message(f"You have selected the {self.values[0]}. Please proceed with your submission.", ephemeral=True)
+
+class DepartmentView(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+        self.add_item(DepartmentSelect())
+        self.department = None  # Initialize with no department selected
 
 
 
