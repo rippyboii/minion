@@ -249,6 +249,32 @@ async def task_list(ctx):
 SUBMIT_TASK_CHANNEL_ID = 1233454738285264927  
 SUBMIT_CATEGORY_ID = 1233454642550280312 
 
+class SupportButton(Button):
+    def __init__(self):
+        super().__init__(style=ButtonStyle.blurple, label="Support 🎗️", custom_id="support_request")
+
+    async def callback(self, interaction: discord.Interaction):
+        # Move the channel to the support category
+        support_category_id = 1239619528539902013
+        support_category = interaction.guild.get_channel(support_category_id)
+        if support_category:
+            await interaction.channel.edit(category=support_category)
+            # Notify the role that they need to take over
+            support_role = interaction.guild.get_role(1232694582114783232)
+            if support_role:
+                await interaction.channel.send(f"This channel is now under support, {support_role.mention} will take care of your problem.")
+            else:
+                await interaction.channel.send("Support role not found.")
+        else:
+            await interaction.channel.send("Support category not found.")
+
+        # Correctly stopping the view associated with the message
+        if interaction.message:
+            for component in interaction.message.components:
+                for item in component.children:
+                    if isinstance(item, View):
+                        item.stop()
+
 
 class SubmitTaskButton(Button):
     def __init__(self):
@@ -301,7 +327,9 @@ class SubmitTaskButton(Button):
             f"Tick-tock, {user.mention}! The countdown of 10 minutes begins now. Let’s see what you've got! ⏰"
         ]
         greeting = random.choice(greetings)
-        await channel.send(greeting)
+        view = View()
+        view.add_item(SupportButton())
+        await channel.send(greeting, view=view)
 
 class DepartmentSelect(discord.ui.Select):
     def __init__(self):
