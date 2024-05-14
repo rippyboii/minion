@@ -348,9 +348,10 @@ class DepartmentSelect(discord.ui.Select):
                 if task_description:
                     task_details[interaction.channel_id] = {
                         "task_id": task_id,
-                        "task_description": task_description
+                        "task_description": task_description,
+                        "department": department
                     }
-                    await interaction.channel.send(f"**Task ID**: {task_id}\n**Task Description:**` {task_description}`\nPlease submit your work.\n **Note: If you are trying to submit a document, create a drive link and send the link! Uploading Document will not work!**")
+                    await interaction.channel.send(f"Task ID: {task_id}\nTask Description: {task_description}\nPlease submit your work.")
                     await self.wait_for_submission(interaction)
                 else:
                     await interaction.channel.send(f"Task ID {task_id} not found in the {department} tasks.")
@@ -414,6 +415,7 @@ async def generate_report(interaction):
 
     report = (
         f"**TASK SUBMISSION FOR {interaction.user.display_name}**\n\n"
+        f"**Department:** {details['department']}\n"
         f"**Task Name:** {details['task_description']}\n"
         f"**Task ID:** {details['task_id']}\n\n"
         f"**Comment:** {details.get('comment', 'No Comment')}\n\n"
@@ -466,13 +468,16 @@ class CorrectButton(Button):
             submission_thread = await interaction.guild.fetch_channel(int(submission_thread_location))
             if submission_thread:
                 report = (
-                    f"**TASK SUBMISSION FOR {interaction.user.name}**\n\n"
+                    f"**TASK SUBMISSION FOR {interaction.user.display_name}**\n\n"
+                    f"**Department:** {details['department']}\n"
                     f"**Task Name:** {details['task_description']}\n"
                     f"**Task ID:** {details['task_id']}\n\n"
                     f"**Comment:** {details.get('comment', 'No Comment')}\n\n"
                     f"**Task:** {details['submission']}"
                 )
-                await submission_thread.send(report)
+                approve_view = View()
+                approve_view.add_item(ApproveButton())  # Add ApproveButton to the view
+                await submission_thread.send(report, view=approve_view)
                 await interaction.channel.send("Your submission is complete! 🎉")
             else:
                 await interaction.channel.send("Submission thread not found. Please contact support.")
@@ -484,16 +489,9 @@ class IncorrectButton(Button):
         super().__init__(label="Incorrect", style=ButtonStyle.red, custom_id="incorrect")
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.channel.send("You need to restart your submission as this one is discarded. **This channel will be deleted in a minute.**")
+        await interaction.channel.send("You need to restart your submission as this one is discarded. This channel will be deleted in a minute.")
         await asyncio.sleep(60)
-        
-        try:
-            channel = bot.get_channel(interaction.channel.id)
-            if channel:
-                await channel.delete()
-        except discord.errors.NotFound:
-            print(f"Channel {interaction.channel.id} not found or already deleted.")
-
+        await interaction.channel.delete()
 
 class DepartmentView(discord.ui.View):
     def __init__(self):
@@ -504,5 +502,110 @@ class DepartmentView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         # Optional: Implement custom logic to check the interaction
         return True
+
+class ApproveButton(Button):
+    def __init__(self):
+        super().__init__(label="Approve ✅", style=ButtonStyle.green, custom_id="approve")
+
+    async def callback(self, interaction: discord.Interaction):
+        # Ensure only users with specific roles can approve
+        allowed_roles = {1232694582114783232, 1239882455067000955}
+        user_roles = {role.id for role in interaction.user.roles}
+
+        if not allowed_roles.intersection(user_roles):
+            await interaction.response.send_message("You do not have permission to approve tasks.", ephemeral=True)
+            return
+
+        # Retrieve the task details from the message
+        message_content = interaction.message.content.split('\n')
+
+        # Debug logging
+        print(f"Message content: {message_content}")
+        print(f"Message content length: {len(message_content)}")
+
+        # Print each line for debugging
+        for i, line in enumerate(message_content):
+            print(f"Line {i}: {line}")
+
+        try:
+            # Check if the length of the message content is at least 9
+            if len(message_content) < 9:
+                raise IndexError("Message content is not of expected length.")
+
+            # Extract the relevant fields
+            department_line = message_content[2].strip()
+            task_description_line = message_content[3].strip()
+            task_id_line = message_content[4].strip()
+            task_content_line = message_content[8].strip()
+
+            # Debug each part
+            print(f"Trying to parse department: {department_line}")
+            if not department_line.startswith("**Department:**"):
+                raise ValueError(f"Unexpected format for department line: {department_line}")
+            department = department_line.split("**Department:** ", 1)[1].strip()
+
+            print(f"Trying to parse task description: {task_description_line}")
+            if not task_description_line.startswith("**Task Name:**"):
+                raise ValueError(f"Unexpected format for task description line: {task_description_line}")
+            task_description = task_description_line.split("**Task Name:** ", 1)[1].strip()
+
+            print(f"Trying to parse task ID: {task_id_line}")
+            if not task_id_line.startswith("**Task ID:**"):
+                raise ValueError(f"Unexpected format for task ID line: {task_id_line}")
+            task_id = task_id_line.split("**Task ID:** ", 1)[1].strip()
+
+            print(f"Trying to parse task content: {task_content_line}")
+            if not task_content_line.startswith("**Task:**"):
+                raise ValueError(f"Unexpected format for task content line: {task_content_line}")
+            task_content = task_content_line.split("**Task:** ", 1)[1].strip()
+
+            # Debug each parsed value
+            print(f"Department: {department}")
+            print(f"Task Description: {task_description}")
+            print(f"Task ID: {task_id}")
+            print(f"Task Content: {task_content}")
+
+        except (IndexError, ValueError) as e:
+            print(f"Error parsing message content: {e}")
+            await interaction.response.send_message("Failed to parse the message content. Please contact support.", ephemeral=True)
+            return
+        except Exception as e:
+            print(f"Unexpected error: {e}")
+            await interaction.response.send_message("An unexpected error occurred. Please contact support.", ephemeral=True)
+            return
+
+        department_roles = {
+            "Content Department": 1231624847855980635,
+            "Graph/IT Department": 1231625024461344840,
+            "ETA Department": 1231624980547113052,
+            "Event Moderation Department": 1231624922393088081
+        }
+
+        department_role_id = department_roles.get(department, None)
+
+        if not department_role_id:
+            await interaction.response.send_message("Department role not found. Please contact support.", ephemeral=True)
+            return
+
+        approved_channel = bot.get_channel(1233852997797417030)
+        if not approved_channel:
+            await interaction.response.send_message("Approved task showcase channel not found. Please contact support.", ephemeral=True)
+            return
+
+        # Send the approval message to the approved task showcase channel
+        approved_message = await approved_channel.send(
+            f"<@&{department_role_id}>, an executive has approved a task!\n\n"
+            f"**Task Description:** {task_description}\n\n"
+            f"**Approved by:** {interaction.user.display_name}"
+        )
+
+        # Create a thread in the approved message and post the task for discussion
+        discussion_thread = await approved_message.create_thread(name=f"Task {task_id} Discussion")
+        await discussion_thread.send(
+            f"**Task:** {task_content}\n\n"
+            f"Feel free to discuss the approved task here."
+        )
+
+        await interaction.response.send_message("The task has been approved and posted in the approved task showcase channel.", ephemeral=True)
 
 bot.run(TOKEN)
