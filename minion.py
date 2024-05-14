@@ -1,4 +1,3 @@
-
 import discord
 import asyncio
 from discord.ext import commands
@@ -8,10 +7,6 @@ import secrets
 import string
 from discord.ui import Button, View, Modal, TextInput
 from discord import ButtonStyle
-from discord import TextInput 
-
-
-
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -22,9 +17,7 @@ intents.members = True
 
 data_lock = asyncio.Lock()
 
-
 bot = commands.Bot(command_prefix='!', intents=intents)
-
 
 GREETINGS = ["hi", "hello", "namaste"]
 RESPONSES = [
@@ -35,37 +28,50 @@ RESPONSES = [
     "Lonely? Don't worry, you've got company!"
 ]
 
+# Channel mappings for tasks and submission
+channel_mapping = {
+    "Content Department": "content-tasks",
+    "ETA Department": "eta-tasks",
+    "Event Moderation Department": "emod-tasks",
+    "Graph/IT Department": "graphit-tasks"
+}
+submit_channel_mapping = {
+    "Content Department": "content-submit",
+    "ETA Department": "eta-submit",
+    "Event Moderation Department": "emod-submit",
+    "Graph/IT Department": "graphit-submit"
+}
+
+department_selection = {}  # Dictionary to store selected department by channel ID
+task_details = {}  # Dictionary to store task details by channel ID
+
 @bot.event
 async def on_ready():
     print(f"We have logged in as {bot.user}")
-    category = bot.get_channel(SUBMIT_CATEGORY_ID)
-    
-    if category:
-        # Iterate over all channels within the specified category
-        for channel in category.channels:
-            if channel.id != SUBMIT_TASK_CHANNEL_ID:
-                await channel.delete()
-                print(f"Deleted channel {channel.name}")
-    
-    submit_channel = bot.get_channel(SUBMIT_TASK_CHANNEL_ID)
-    if submit_channel:
-        await submit_channel.purge(limit=None)  # Clears all messages in the submission channel
-        message_content = (
-            "Greetings, Applicant!\n\n"
-            "Welcome to the dedicated task submission channel. If you have work to submit, you're in the right place! "
-            "Simply click the 'Submit Task' button below to begin. A quiet, dedicated channel will be created specifically for your submission. "
-            "Don't worry—I'll be there to guide you every step of the way."
-        )
-
-        view = View()
-        submit_button = SubmitTaskButton()
-        view.add_item(submit_button)
-        await submit_channel.send(message_content, view=view)
-    else:
-        print("Error: Submit channel not found.")
-
-
-
+    try:
+        category = bot.get_channel(SUBMIT_CATEGORY_ID)
+        if category:
+            for channel in category.channels:
+                if channel.id != SUBMIT_TASK_CHANNEL_ID:
+                    await channel.delete()
+                    print(f"Deleted channel {channel.name}")
+        submit_channel = bot.get_channel(SUBMIT_TASK_CHANNEL_ID)
+        if submit_channel:
+            await submit_channel.purge(limit=None)
+            message_content = (
+                "Greetings, Applicant!\n\n"
+                "Welcome to the dedicated task submission channel. If you have work to submit, you're in the right place! "
+                "Simply click the 'Submit Task' button below to begin. A quiet, dedicated channel will be created specifically for your submission. "
+                "Don't worry—I'll be there to guide you every step of the way."
+            )
+            view = View()
+            submit_button = SubmitTaskButton()
+            view.add_item(submit_button)
+            await submit_channel.send(message_content, view=view)
+        else:
+            print("Error: Submit channel not found.")
+    except Exception as e:
+        print(f"Error in on_ready: {e}")
 
 @bot.event
 async def handle_delayed_reply(message):
@@ -75,8 +81,7 @@ async def handle_delayed_reply(message):
         response = random.choice(RESPONSES)
         await message.reply(response, mention_author=True)
 
-
-#Auto Role
+# Auto Role
 REACTION_MESSAGE_ID = 1232692142770749462  
 
 roles_info = {
@@ -126,8 +131,6 @@ async def on_raw_reaction_remove(payload):
         else:
             print(f"Member not found or is a bot for user_id {payload.user_id}")
 
-
-
 # UNIQUE TASK IDs
 async def generate_unique_id(bot, id_storage_channel_id, department):
     prefix_mapping = {
@@ -152,7 +155,6 @@ async def generate_unique_id(bot, id_storage_channel_id, department):
         if task_id not in existing_ids:
             return task_id
 
-
 # Utility to find role by name, case-insensitively
 def find_role_by_name(guild, role_name):
     return discord.utils.find(lambda r: r.name.lower() == role_name.lower(), guild.roles)
@@ -161,24 +163,11 @@ def find_role_by_name(guild, role_name):
 async def send_error_message(ctx, error_message):
     await ctx.send(f"Error: {error_message}", delete_after=10)  # Deletes after 10 seconds
 
-#ASSIGN
+# ASSIGN
 @bot.command()
 async def assign(ctx, role_name: str, *, task):
     """Assigns a task to a role and announces it in a specific channel with a role mention and a unique task ID."""
     role = find_role_by_name(ctx.guild, role_name)
-    channel_mapping = {
-        "Content Department": "content-tasks",
-        "ETA Department": "eta-tasks",
-        "Event Moderation Department": "emod-tasks",
-        "Graph/IT Department": "graphit-tasks"
-    }
-    submit_channel_mapping = {
-        "Content Department": "content-submit",
-        "ETA Department": "eta-submit",
-        "Event Moderation Department": "emod-submit",
-        "Graph/IT Department": "graphit-submit"
-    }
-
     if not role:
         return await send_error_message(ctx, "Role not found. Please check the role name and try again.")
 
@@ -206,19 +195,10 @@ async def assign(ctx, role_name: str, *, task):
 
     await ctx.send(f"Task assigned to {role.name} and announced in {task_channel.name} with Task ID: {task_id}. Submissions can be made in the thread in {submit_channel.name}.")
 
-
-
-#TASK LIST
+# TASK LIST
 @bot.command()
 async def task_list(ctx):
     """Lists all pending tasks for all departments, formatted neatly."""
-    channel_mapping = {
-        "Content Department": "content-tasks",
-        "ETA Department": "eta-tasks",
-        "Event Moderation Department": "emod-tasks",
-        "Graph/IT Department": "graphit-tasks"
-    }
-
     response = []
     index = 1  # To number each department
     for role_name, channel_name in channel_mapping.items():
@@ -243,9 +223,6 @@ async def task_list(ctx):
     else:
         await ctx.send("No pending tasks found.")
 
-
-
-
 SUBMIT_TASK_CHANNEL_ID = 1233454738285264927  
 SUBMIT_CATEGORY_ID = 1233454642550280312 
 
@@ -254,19 +231,21 @@ class SupportButton(Button):
         super().__init__(style=ButtonStyle.blurple, label="Support 🎗️", custom_id="support_request")
 
     async def callback(self, interaction: discord.Interaction):
-        # Move the channel to the support category
         support_category_id = 1239619528539902013
         support_category = interaction.guild.get_channel(support_category_id)
-        if support_category:
-            await interaction.channel.edit(category=support_category)
-            # Notify the role that they need to take over
-            support_role = interaction.guild.get_role(1232694582114783232)
-            if support_role:
-                await interaction.channel.send(f"This channel is now under support, {support_role.mention} will take care of your problem.")
+        try:
+            if support_category:
+                await interaction.channel.edit(category=support_category)
+                support_role = interaction.guild.get_role(1232694582114783232)
+                if support_role:
+                    await interaction.channel.send(f"This channel is now under support, {support_role.mention} will take care of your problem.")
+                else:
+                    await interaction.channel.send("Support role not found.")
             else:
-                await interaction.channel.send("Support role not found.")
-        else:
-            await interaction.channel.send("Support category not found.")
+                await interaction.channel.send("Support category not found.")
+        except Exception as e:
+            await interaction.channel.send(f"An error occurred: {e}")
+            print(f"Error in SupportButton callback: {e}")
 
         # Correctly stopping the view associated with the message
         if interaction.message:
@@ -275,43 +254,35 @@ class SupportButton(Button):
                     if isinstance(item, View):
                         item.stop()
 
-
 class SubmitTaskButton(Button):
     def __init__(self):
-        # Ensure label, style, and custom_id are set during initialization
         super().__init__(label="Submit Task", style=ButtonStyle.green, custom_id="submit_task")
 
     async def callback(self, interaction: discord.Interaction):
         category = bot.get_channel(SUBMIT_CATEGORY_ID)
         if not category:
-            await interaction.response.send_message("Error: Submission category not found.", ephemeral=True)
+            await interaction.response.send_message("Submission category not found.", ephemeral=True)
             return
 
         overwrites = {
             interaction.guild.default_role: discord.PermissionOverwrite(read_messages=False),
             interaction.user: discord.PermissionOverwrite(read_messages=True)
         }
-        channel = await interaction.guild.create_text_channel(f"submission-{interaction.user.display_name}", category=category, overwrites=overwrites)
         
-        await self.send_greeting(channel, interaction.user)
-        await interaction.response.send_message(f"A private submission channel has been created for you: {channel.mention}", ephemeral=True)
+        try:
+            channel = await interaction.guild.create_text_channel("submission", category=category, overwrites=overwrites)
+            await self.send_greeting(channel, interaction.user)
 
-        # Send the department select view
-        view = DepartmentView()
-        await channel.send("Please select the department for which this task is intended:", view=view)
+            view = DepartmentView()
+            await channel.send("Please select the department for which this task is intended:", view=view)
 
-        # Wait for the department to be selected or for the view to timeout
-        await view.wait()
-        if view.department:
-            # The user has selected a department, continue with further processing
-            await channel.send(f"Department {view.department} selected. You can now proceed with your submission details.")
-        else:
-            # No selection made, or the view timed out
-            await channel.send("No department selected, please restart the submission process.")
+            # Optionally delete the channel or handle cleanup
+            await asyncio.sleep(600)  # Example: wait 10 minutes before cleanup
+            await channel.delete()
+        except Exception as e:
+            await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
+            print(f"Error in SubmitTaskButton callback: {e}")
 
-        # Schedule the channel to be deleted after 10 minutes
-        await asyncio.sleep(600)  # Wait for 10 minutes
-        await channel.delete()
     @staticmethod
     async def send_greeting(channel, user):
         greetings = [
@@ -327,14 +298,16 @@ class SubmitTaskButton(Button):
             f"Tick-tock, {user.mention}! The countdown of 10 minutes begins now. Let’s see what you've got! ⏰"
         ]
         greeting = random.choice(greetings)
-        view = View()
-        view.add_item(SupportButton())
-        await channel.send(greeting, view=view)
+        await channel.send(greeting)
+
+        support_button = SupportButton()  # Create the support button
+        support_view = View()
+        support_view.add_item(support_button)
+        await channel.send("If you need support, click the button below:", view=support_view)
 
 class DepartmentSelect(discord.ui.Select):
     def __init__(self):
-        # Set the options that will be available in the dropdown
-        options=[
+        options = [
             discord.SelectOption(label="Content Department", description="Submit tasks for content creation."),
             discord.SelectOption(label="ETA Department", description="Submit tasks for educational and training activities."),
             discord.SelectOption(label="Event Moderation Department", description="Submit tasks related to event management and moderation."),
@@ -345,9 +318,175 @@ class DepartmentSelect(discord.ui.Select):
                          min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
-        # Store the selected option
-        self.view.department = self.values[0]
-        await interaction.response.send_message(f"You have selected the {self.values[0]}. Please proceed with your submission.", ephemeral=True)
+        try:
+            self.view.department = self.values[0]
+            department_selection[interaction.channel_id] = self.values[0]
+            await interaction.response.send_message(f"You have selected the {self.values[0]}. Please enter the task ID for which you are submitting the work:", ephemeral=True)
+            
+            def check(m):
+                return m.channel == interaction.channel and m.author == interaction.user
+
+            msg = await bot.wait_for('message', check=check, timeout=600)
+            task_id = msg.content.strip()
+
+            # Retrieve the selected department from the stored data
+            department = department_selection.get(interaction.channel_id)
+
+            # Search for the task ID in the respective department's task channel
+            task_channel_name = channel_mapping.get(department)
+            task_channel = discord.utils.get(interaction.guild.text_channels, name=task_channel_name)
+            task_description = None
+
+            if task_channel:
+                async for message in task_channel.history(limit=100):  # Adjust limit as necessary
+                    if f"[Task ID: {task_id}]" in message.content:
+                        task_description_start = message.content.find(":") + 2
+                        task_description_end = message.content.find("[Task ID:") - 1
+                        task_description = message.content[task_description_start:task_description_end].strip()
+                        break
+
+                if task_description:
+                    task_details[interaction.channel_id] = {
+                        "task_id": task_id,
+                        "task_description": task_description
+                    }
+                    await interaction.channel.send(f"Task ID: {task_id}\nTask Description: {task_description}\nPlease submit your work.")
+                    await self.wait_for_submission(interaction)
+                else:
+                    await interaction.channel.send(f"Task ID {task_id} not found in the {department} tasks.")
+            else:
+                await interaction.channel.send(f"Task channel for {department} not found.")
+
+        except asyncio.TimeoutError:
+            await interaction.channel.send("You did not provide a task ID in time. Please try again.")
+            await interaction.channel.delete()
+
+    async def wait_for_submission(self, interaction):
+        def check(m):
+            return m.channel == interaction.channel and m.author == interaction.user
+
+        try:
+            submission_msg = await bot.wait_for('message', check=check, timeout=600)
+            task_details[interaction.channel_id]["submission"] = submission_msg.content
+
+            comment_view = CommentView()
+            await interaction.channel.send("Would you like to add a comment to your submission?", view=comment_view)
+        except asyncio.TimeoutError:
+            await interaction.channel.send("You did not submit your work in time. Please try again.")
+            await interaction.channel.delete()
+
+class CommentView(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+        self.add_item(AddCommentButton())
+        self.add_item(NoCommentButton())
+
+class AddCommentButton(Button):
+    def __init__(self):
+        super().__init__(label="Add Comment", style=ButtonStyle.blurple, custom_id="add_comment")
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.response.send_message("Please enter your comment:", ephemeral=True)
+
+        def check(m):
+            return m.channel == interaction.channel and m.author == interaction.user
+
+        try:
+            comment_msg = await bot.wait_for('message', check=check, timeout=600)
+            task_details[interaction.channel_id]["comment"] = comment_msg.content
+            await interaction.channel.send("Your comment has been added.")
+            await generate_report(interaction)
+        except asyncio.TimeoutError:
+            await interaction.channel.send("You did not provide a comment in time. Please try again.")
+            await interaction.channel.delete()
+
+class NoCommentButton(Button):
+    def __init__(self):
+        super().__init__(label="No Comment", style=ButtonStyle.grey, custom_id="no_comment")
+
+    async def callback(self, interaction: discord.Interaction):
+        task_details[interaction.channel_id]["comment"] = "No Comment"
+        await generate_report(interaction)
+
+async def generate_report(interaction):
+    channel_id = interaction.channel_id
+    details = task_details[channel_id]
+
+    report = (
+        f"**TASK SUBMISSION FOR {interaction.user.name}**\n\n"
+        f"**Task Name:** {details['task_description']}\n"
+        f"**Task ID:** {details['task_id']}\n\n"
+        f"**Comment:** {details.get('comment', 'No Comment')}\n\n"
+        f"**Task:** {details['submission']}"
+    )
+
+    view = ReportConfirmationView()
+    await interaction.channel.send(report, view=view)
+
+class ReportConfirmationView(discord.ui.View):
+    def __init__(self):
+        super().__init__()
+        self.add_item(CorrectButton())
+        self.add_item(IncorrectButton())
+
+class CorrectButton(Button):
+    def __init__(self):
+        super().__init__(label="Correct", style=ButtonStyle.green, custom_id="correct")
+
+    async def callback(self, interaction: discord.Interaction):
+        channel_id = interaction.channel_id
+        details = task_details[channel_id]
+
+        task_id = details['task_id']
+        id_storage_channel = bot.get_channel(1235662235976728576)  # ID of the channel where task-ids are stored
+
+        submission_thread_location = None
+
+        # Debug message: Start of task ID search
+        await interaction.channel.send(f"Searching for task ID: {task_id} in the task-ids channel.")
+
+        # Improved search logic
+        async for message in id_storage_channel.history(limit=None):
+            lines = message.content.split('\n')
+            if lines[0] == task_id:
+                submission_thread_location = lines[1].replace("Submission Thread location: ", "")
+                break
+
+        # Debug message: Task ID search result
+        if submission_thread_location:
+            await interaction.channel.send(f"Found submission thread location: {submission_thread_location}.")
+        else:
+            await interaction.channel.send("Task ID not found in task-ids channel. Please contact support.")
+            return
+
+        # Debug message: Retrieving the submission thread
+        await interaction.channel.send(f"Retrieving submission thread: {submission_thread_location}.")
+
+        try:
+            submission_thread = await interaction.guild.fetch_channel(int(submission_thread_location))
+            if submission_thread:
+                report = (
+                    f"**TASK SUBMISSION FOR {interaction.user.name}**\n\n"
+                    f"**Task Name:** {details['task_description']}\n"
+                    f"**Task ID:** {details['task_id']}\n\n"
+                    f"**Comment:** {details.get('comment', 'No Comment')}\n\n"
+                    f"**Task:** {details['submission']}"
+                )
+                await submission_thread.send(report)
+                await interaction.channel.send("Your submission is complete! 🎉")
+            else:
+                await interaction.channel.send("Submission thread not found. Please contact support.")
+        except Exception as e:
+            await interaction.channel.send(f"An error occurred: {e}")
+
+class IncorrectButton(Button):
+    def __init__(self):
+        super().__init__(label="Incorrect", style=ButtonStyle.red, custom_id="incorrect")
+
+    async def callback(self, interaction: discord.Interaction):
+        await interaction.channel.send("You need to restart your submission as this one is discarded. This channel will be deleted in a minute.")
+        await asyncio.sleep(60)
+        await interaction.channel.delete()
 
 class DepartmentView(discord.ui.View):
     def __init__(self):
@@ -355,8 +494,8 @@ class DepartmentView(discord.ui.View):
         self.add_item(DepartmentSelect())
         self.department = None  # Initialize with no department selected
 
-
-
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        # Optional: Implement custom logic to check the interaction
+        return True
 
 bot.run(TOKEN)
-
