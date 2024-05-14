@@ -350,7 +350,7 @@ class DepartmentSelect(discord.ui.Select):
                         "task_id": task_id,
                         "task_description": task_description
                     }
-                    await interaction.channel.send(f"Task ID: {task_id}\nTask Description: {task_description}\nPlease submit your work.")
+                    await interaction.channel.send(f"**Task ID**: {task_id}\n**Task Description:**` {task_description}`\nPlease submit your work.\n **Note: If you are trying to submit a document, create a drive link and send the link! Uploading Document will not work!**")
                     await self.wait_for_submission(interaction)
                 else:
                     await interaction.channel.send(f"Task ID {task_id} not found in the {department} tasks.")
@@ -413,7 +413,7 @@ async def generate_report(interaction):
     details = task_details[channel_id]
 
     report = (
-        f"**TASK SUBMISSION FOR {interaction.user.name}**\n\n"
+        f"**TASK SUBMISSION FOR {interaction.user.display_name}**\n\n"
         f"**Task Name:** {details['task_description']}\n"
         f"**Task ID:** {details['task_id']}\n\n"
         f"**Comment:** {details.get('comment', 'No Comment')}\n\n"
@@ -484,9 +484,16 @@ class IncorrectButton(Button):
         super().__init__(label="Incorrect", style=ButtonStyle.red, custom_id="incorrect")
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.channel.send("You need to restart your submission as this one is discarded. This channel will be deleted in a minute.")
+        await interaction.channel.send("You need to restart your submission as this one is discarded. **This channel will be deleted in a minute.**")
         await asyncio.sleep(60)
-        await interaction.channel.delete()
+        
+        try:
+            channel = bot.get_channel(interaction.channel.id)
+            if channel:
+                await channel.delete()
+        except discord.errors.NotFound:
+            print(f"Channel {interaction.channel.id} not found or already deleted.")
+
 
 class DepartmentView(discord.ui.View):
     def __init__(self):
