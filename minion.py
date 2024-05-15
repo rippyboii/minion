@@ -608,4 +608,67 @@ class ApproveButton(Button):
 
         await interaction.response.send_message("The task has been approved and posted in the approved task showcase channel.", ephemeral=True)
 
+# CLEAR TASK
+@bot.command()
+async def clear_task(ctx, task_id: str):
+    """Clears a task based on the task ID, can only be used by executives or bot helpers."""
+    allowed_roles = {1232694582114783232, 1239882455067000955}
+    user_roles = {role.id for role in ctx.author.roles}
+
+    if not allowed_roles.intersection(user_roles):
+        await ctx.send("You do not have permission to clear tasks.")
+        return
+
+    # Determine the department from the task ID prefix
+    department_prefix_mapping = {
+        "C": "Content Department",
+        "Et": "ETA Department",
+        "Em": "Event Moderation Department",
+        "Gi": "Graph/IT Department"
+    }
+
+    prefix = next((k for k in department_prefix_mapping if task_id.startswith(k)), None)
+    if not prefix:
+        await ctx.send("Invalid task ID prefix.")
+        return
+
+    department = department_prefix_mapping[prefix]
+    task_channel_name = channel_mapping.get(department)
+    id_storage_channel_id = 1235662235976728576
+
+    # Find and delete the task message in the department task channel
+    task_channel = discord.utils.get(ctx.guild.text_channels, name=task_channel_name)
+    if not task_channel:
+        await ctx.send(f"Task channel for {department} not found.")
+        return
+
+    task_message_found = False
+    async for message in task_channel.history(limit=100):  # Adjust limit as necessary
+        if f"[Task ID: {task_id}]" in message.content:
+            await message.delete()
+            task_message_found = True
+            break
+
+    if not task_message_found:
+        await ctx.send(f"Task ID {task_id} not found in the {department} tasks.")
+        return
+
+    # Find and delete the task ID message in the task-ids channel
+    id_storage_channel = bot.get_channel(id_storage_channel_id)
+    if not id_storage_channel:
+        await ctx.send("Task-ids channel not found.")
+        return
+
+    task_id_message_found = False
+    async for message in id_storage_channel.history(limit=None):
+        if message.content.startswith(task_id):
+            await message.delete()
+            task_id_message_found = True
+            break
+
+    if task_id_message_found:
+        await ctx.send(f"Task ID {task_id} has been cleared.")
+    else:
+        await ctx.send(f"Task ID {task_id} was not found in the task-ids channel.")
+
 bot.run(TOKEN)
