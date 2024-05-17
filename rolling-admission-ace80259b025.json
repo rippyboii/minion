@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "rolling-admission",
+  "private_key_id": "ace80259b025548aa8f1395e99f2d19027c437dd",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQC8U/pQV4r3PcNh\nvEzrapeVuBhsFO9tpzyim8/LzFdp+RTqdnYg7z76P5xBxmJ8IxaXJaBsSzOqdfgA\nTGfr0YkNfD7oTvA6+lIHTkMZ7LH22xaW9fBM7YwU4QQTevw5X6ByZYFHJzUnj3nJ\ncdBBC6o6MIg3Vzp1QUl7S8EmW7fkh5R3apgwEDj6IwEuUxet1euLyaZJVfZSxM2N\noabjAv2q84MnJBkHYS9dJzXFRSb1RPc5ypcT0OBuDm8vCddtbkDO/tAQGLcWWwCl\nuEWULkyqHocwIyJVsPzwCandPGAxXWgDEk0pWDQR5cmPM67uCjX8swq+dDV7riTk\nuk4YV0FdAgMBAAECggEABXv6k6FhAh8x0+RMZySlAm6og2k+qbZPjTq1W+149DSV\nN9i4SvA8qMP2dHHnB09sRn2JhO3RtNqXnMac1iC1eYePO2ulEkqc3eqZCKW8bwBl\nUYMa+tqGFEuTN1ADDVasEPjEwYIySZMjjEq8slA5JlWoedgX8zcyAR2tI8VS/xwo\nxqyAzpNu0jelW+AVaX5CQfIG9ctHpiVz78w98OMVE1lG8H2k3QdgFU/ILiZqxa57\n5S1Rz6AkB4u3wvCBila1sisztAE4l5YtdhI/M9OGcPikdA95CzD3u+TGzZYWua3P\nnKjEKtRKgI0IHBtTDJsgI8J3cCZo2RGcFuBCTMfHIQKBgQD2T45r/tpyhH+rEf4C\nhz5wmnlpPRT9csAhIpQcm8jj/bOsaKH4hs18PtUR29MKtWbuOfdknPC1y8QHdhsy\nyKg3eWxT2Kc8J5NikeIy6gSXx82WsdfyOBesS6KVGgTZk7kT/ao6P/PHXf1FW0yz\nKJK9ckOv75tEXB08lUZZETr+7QKBgQDDvINgbYoYD8P9Cn/3w7XC8lkr1dRDEAaK\nUFXxJNFYMZhUmHgnQMNNnnCF+ZieNvrdP8eHYVppUV99kMoX9Hv9Ao4kmPiK/OUf\nBD+aEOGSenusDm79DfhtkTg9sVL7abninMvT6/JL/p4u34oBe0P/GGeMWxubrlw8\n0YTVs5mOMQKBgQCkXha2rs1r2kuwB0OwwDvEvPEEb4SQVYEtG3wnUzZOHsFF7lUY\nGi0KGovpbP56iO91Ti1vcOOZDa91IzWnQAwxaNAHa+69z9Mk1iFSxKPn/aeORoPK\n2e/CRH7sbP6Li27YjlCIqqCtjGU1YWXfsNWropLU11qP1cCU6zCUw1DRSQKBgQCO\n2IC4WrixHrBVdtg1JSr8/oh9KSwjVQqw3jgaKFhvGKKm+i6V1vmxJ7PO0nzC2jTy\nSp1++1lUCwK5THVwTgg+eSLrKogYRr+fhyYzdaZpk+G1i0MMgqmOrLBytXpt6Jaz\n/uHx4vuM4mDmrFS3CBJzlIfdMpBPaUv/Rpi+rLefwQKBgDrRqdmcz1OgnKr1YcaU\nk6BQdtSrzOiAm/3WwqsTiJOJx4+Z2KThW0PMsLux7ULZEsrCxD5A1UUStCA6pUAA\nEbVs3WxofQa0C61NJmuU12xu5vTcAVb1T1mdemIWlBexahLorD41B1Xbc1IM2PQl\nzYmnvHVt3dwqDohz+nl7BWEd\n-----END PRIVATE KEY-----\n",
+  "client_email": "minion-bot@rolling-admission.iam.gserviceaccount.com",
+  "client_id": "107961010768893735445",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/minion-bot%40rolling-admission.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
