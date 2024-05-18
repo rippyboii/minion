@@ -5,7 +5,7 @@ import random
 from TOKEN import TOKEN
 import secrets
 import string
-from discord.ui import Button, View, Modal, TextInput
+from discord.ui import Button, View
 from discord import ButtonStyle
 
 intents = discord.Intents.default()
