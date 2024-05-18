@@ -2,7 +2,8 @@ import discord
 import asyncio
 from discord.ext import commands
 import random
-from TOKEN import TOKEN
+from dotenv import load_dotenv
+import os
 import secrets
 import string
 from discord.ui import Button, View
@@ -16,6 +17,8 @@ intents.reactions = True
 intents.members = True
 
 data_lock = asyncio.Lock()
+
+load_dotenv()
 
 bot = commands.Bot(command_prefix='!', intents=intents)
 
@@ -608,4 +611,4 @@ class ApproveButton(Button):
 
         await interaction.response.send_message("The task has been approved and posted in the approved task showcase channel.", ephemeral=True)
 
-bot.run(TOKEN)
+bot.run(os.getenv("TOKEN"))
