@@ -50,9 +50,27 @@ submit_channel_mapping = {
 department_selection = {}  # Dictionary to store selected department by channel ID
 task_details = {}  # Dictionary to store task details by channel ID
 
+LOGGING_CHANNEL_ID = 1241590035464192080  # Channel ID for logging
+
+async def log_to_channel(bot, message):
+    """Sends a log message to the specified logging channel."""
+    channel = bot.get_channel(LOGGING_CHANNEL_ID)
+    if channel:
+        await channel.send(message)
+
+async def keep_alive():
+    while True:
+        await asyncio.sleep(300)  # Sleep for 5 minutes
+        try:
+            print("Keep-alive check")
+        except Exception as e:
+            print(f"Error in keep-alive check: {e}")
+
 @bot.event
 async def on_ready():
     print(f"We have logged in as {bot.user}")
+    bot.loop.create_task(keep_alive())  # Start keep-alive task
+
     try:
         category = bot.get_channel(SUBMIT_CATEGORY_ID)
         if category:
@@ -69,14 +87,16 @@ async def on_ready():
                 "Simply click the 'Submit Task' button below to begin. A quiet, dedicated channel will be created specifically for your submission. "
                 "Don't worry—I'll be there to guide you every step of the way."
             )
-            view = View()
+            view = View(timeout=None)  # Disable timeout
             submit_button = SubmitTaskButton()
             view.add_item(submit_button)
             await submit_channel.send(message_content, view=view)
+            await log_to_channel(bot, "Bot is ready and submission channel is set up.")
         else:
             print("Error: Submit channel not found.")
     except Exception as e:
         print(f"Error in on_ready: {e}")
+        await log_to_channel(bot, f"Error in on_ready: {e}")
 
 @bot.event
 async def handle_delayed_reply(message):
@@ -109,12 +129,15 @@ async def on_raw_reaction_add(payload):
                 if role:
                     await member.add_roles(role)
                     print(f"Added {role_name} to {member.name}")
+                    await log_to_channel(bot, f"Added {role_name} to {member.name}")
                 else:
                     print(f"Role '{role_name}' not found in the server.")
+                    await log_to_channel(bot, f"Role '{role_name}' not found in the server.")
             else:
                 print(f"Emoji {emoji} is not configured for any role.")
+                await log_to_channel(bot, f"Emoji {emoji} is not configured for any role.")
         else:
-            print(f"Member not found or is a bot for user_id {payload.user_id}")
+            await log_to_channel(f"Member not found or is a bot for user_id {payload.user_id}")
 
 @bot.event
 async def on_raw_reaction_remove(payload):
@@ -129,12 +152,15 @@ async def on_raw_reaction_remove(payload):
                 if role:
                     await member.remove_roles(role)
                     print(f"Removed {role_name} from {member.name}")
+                    await log_to_channel(bot, f"Removed {role_name} from {member.name}")
                 else:
                     print(f"Role '{role_name}' for removal not found in the server.")
+                    await log_to_channel(bot, f"Role '{role_name}' for removal not found in the server.")
             else:
                 print(f"Emoji {emoji} configured role is not available for removal.")
+                await log_to_channel(bot, f"Emoji {emoji} configured role is not available for removal.")
         else:
-            print(f"Member not found or is a bot for user_id {payload.user_id}")
+            await log_to_channel(f"Member not found or is a bot for user_id {payload.user_id}")
 
 # UNIQUE TASK IDs
 async def generate_unique_id(bot, id_storage_channel_id, department):
@@ -167,6 +193,7 @@ def find_role_by_name(guild, role_name):
 # Utility to send detailed error messages
 async def send_error_message(ctx, error_message):
     await ctx.send(f"Error: {error_message}", delete_after=10)  # Deletes after 10 seconds
+    await log_to_channel(bot, f"Error: {error_message}")
 
 # ASSIGN
 @bot.command()
@@ -187,6 +214,7 @@ async def assign(ctx, role_name: str, *, task):
     # Send message to the task channel
     task_message = f"{role.mention} New task assigned to {role_name}: {task} [Task ID: {task_id}] ❗"
     await task_channel.send(task_message)
+    await log_to_channel(bot, f"{ctx.author} assigned task to {role_name} with Task ID: {task_id}")
 
     # Send initial submission prompt to the submit channel and create a thread
     submit_message = await submit_channel.send(f"[TASK ID: {task_id}] Any Submission to the task: {task} will be available in this message thread.")
@@ -194,11 +222,13 @@ async def assign(ctx, role_name: str, *, task):
     
     # Send a new message inside the thread
     await submission_thread.send("New messages will be available here.")
+    await log_to_channel(bot, f"Created submission thread for Task ID: {task_id}")
 
     # Send the task ID with thread location after creating the thread
     await bot.get_channel(id_storage_channel_id).send(f"{task_id}\nSubmission Thread location: {submission_thread.id}")
 
     await ctx.send(f"Task assigned to {role.name} and announced in {task_channel.name} with Task ID: {task_id}. Submissions can be made in the thread in {submit_channel.name}.")
+
 
 # TASK LIST
 @bot.command()
@@ -228,6 +258,7 @@ async def task_list(ctx):
     else:
         await ctx.send("No pending tasks found.")
 
+
 SUBMIT_TASK_CHANNEL_ID = 1233454738285264927  
 SUBMIT_CATEGORY_ID = 1233454642550280312 
 
@@ -244,6 +275,7 @@ class SupportButton(Button):
                 support_role = interaction.guild.get_role(1232694582114783232)
                 if support_role:
                     await interaction.channel.send(f"This channel is now under support, {support_role.mention} will take care of your problem.")
+                    await log_to_channel(bot, f"{interaction.user.name} requested support during their taks submission.")
                 else:
                     await interaction.channel.send("Support role not found.")
             else:
@@ -251,6 +283,7 @@ class SupportButton(Button):
         except Exception as e:
             await interaction.channel.send(f"An error occurred: {e}")
             print(f"Error in SupportButton callback: {e}")
+            await log_to_channel(bot, f"Error in SupportButton callback: {e}")
 
         # Correctly stopping the view associated with the message
         if interaction.message:
@@ -278,15 +311,18 @@ class SubmitTaskButton(Button):
             channel = await interaction.guild.create_text_channel("submission", category=category, overwrites=overwrites)
             await self.send_greeting(channel, interaction.user)
 
-            view = DepartmentView()
+            view = DepartmentView(timeout=None)  # Disable timeout
             await channel.send("Please select the department for which this task is intended:", view=view)
+            await log_to_channel(bot, f"Created submission channel for {interaction.user.name}")
 
             # Optionally delete the channel or handle cleanup
             await asyncio.sleep(600)  # Example: wait 10 minutes before cleanup
             await channel.delete()
+            await log_to_channel(bot, f"Deleted submission channel for {interaction.user.name} after 10 minutes.")
         except Exception as e:
             await interaction.response.send_message(f"An error occurred: {e}", ephemeral=True)
             print(f"Error in SubmitTaskButton callback: {e}")
+            await log_to_channel(bot, f"Error in SubmitTaskButton callback: {e}")
 
     @staticmethod
     async def send_greeting(channel, user):
@@ -306,7 +342,7 @@ class SubmitTaskButton(Button):
         await channel.send(greeting)
 
         support_button = SupportButton()  # Create the support button
-        support_view = View()
+        support_view = View(timeout=None)  # Disable timeout
         support_view.add_item(support_button)
         await channel.send("If you need support, click the button below:", view=support_view)
 
@@ -366,6 +402,7 @@ class DepartmentSelect(discord.ui.Select):
         except asyncio.TimeoutError:
             await interaction.channel.send("You did not provide a task ID in time. Please try again.")
             await interaction.channel.delete()
+            await log_to_channel(bot, f"Task ID not provided in time for user {interaction.user.display_name}. Channel deleted.")
 
     async def wait_for_submission(self, interaction):
         def check(m):
@@ -375,15 +412,17 @@ class DepartmentSelect(discord.ui.Select):
             submission_msg = await bot.wait_for('message', check=check, timeout=600)
             task_details[interaction.channel_id]["submission"] = submission_msg.content
 
-            comment_view = CommentView()
+            comment_view = CommentView(timeout=None)  # Disable timeout
             await interaction.channel.send("Would you like to add a comment to your submission?", view=comment_view)
+            await log_to_channel(bot, f"Received submission task ID: {task_details[interaction.channel_id]['task_id']}")
         except asyncio.TimeoutError:
             await interaction.channel.send("You did not submit your work in time. Please try again.")
             await interaction.channel.delete()
+            await log_to_channel(bot, f"Submission not provided in time. Channel deleted for user {interaction.user}.")
 
 class CommentView(discord.ui.View):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, timeout=None):  # Disable timeout
+        super().__init__(timeout=timeout)
         self.add_item(AddCommentButton())
         self.add_item(NoCommentButton())
 
@@ -405,6 +444,7 @@ class AddCommentButton(Button):
         except asyncio.TimeoutError:
             await interaction.channel.send("You did not provide a comment in time. Please try again.")
             await interaction.channel.delete()
+            await log_to_channel(bot, "Comment not provided in time. Channel deleted.")
 
 class NoCommentButton(Button):
     def __init__(self):
@@ -427,12 +467,12 @@ async def generate_report(interaction):
         f"**Task:** {details['submission']}"
     )
 
-    view = ReportConfirmationView()
+    view = ReportConfirmationView(timeout=None)  # Disable timeout
     await interaction.channel.send(report, view=view)
 
 class ReportConfirmationView(discord.ui.View):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, timeout=None):  # Disable timeout
+        super().__init__(timeout=timeout)
         self.add_item(CorrectButton())
         self.add_item(IncorrectButton())
 
@@ -464,6 +504,7 @@ class CorrectButton(Button):
             await interaction.channel.send(f"Found submission thread location: {submission_thread_location}.")
         else:
             await interaction.channel.send("Task ID not found in task-ids channel. Please contact support.")
+            await log_to_channel(bot, f"Task ID {task_id} not found in task-ids channel.")
             return
 
         # Debug message: Retrieving the submission thread
@@ -480,14 +521,17 @@ class CorrectButton(Button):
                     f"**Comment:** {details.get('comment', 'No Comment')}\n\n"
                     f"**Task:** {details['submission']}"
                 )
-                approve_view = View()
+                approve_view = View(timeout=None)  # Disable timeout
                 approve_view.add_item(ApproveButton())  # Add ApproveButton to the view
                 await submission_thread.send(report, view=approve_view)
                 await interaction.channel.send("Your submission is complete! 🎉")
+                await log_to_channel(bot, f"Submission complete for task ID: {task_id} by applicant {interaction.user.display_name}")
             else:
                 await interaction.channel.send("Submission thread not found. Please contact support.")
+                await log_to_channel(bot, "Submission thread not found.")
         except Exception as e:
             await interaction.channel.send(f"An error occurred: {e}")
+            await log_to_channel(bot, f"Error retrieving submission thread: {e}")
 
 class IncorrectButton(Button):
     def __init__(self):
@@ -499,8 +543,8 @@ class IncorrectButton(Button):
         await interaction.channel.delete()
 
 class DepartmentView(discord.ui.View):
-    def __init__(self):
-        super().__init__()
+    def __init__(self, timeout=None):  # Disable timeout
+        super().__init__(timeout=timeout)
         self.add_item(DepartmentSelect())
         self.department = None  # Initialize with no department selected
 
@@ -573,10 +617,12 @@ class ApproveButton(Button):
         except (IndexError, ValueError) as e:
             print(f"Error parsing message content: {e}")
             await interaction.response.send_message("Failed to parse the message content. Please contact support.", ephemeral=True)
+            await log_to_channel(bot, f"Error parsing message content: {e}")
             return
         except Exception as e:
             print(f"Unexpected error: {e}")
             await interaction.response.send_message("An unexpected error occurred. Please contact support.", ephemeral=True)
+            await log_to_channel(bot, f"Unexpected error: {e}")
             return
 
         department_roles = {
@@ -595,6 +641,7 @@ class ApproveButton(Button):
         approved_channel = bot.get_channel(1233852997797417030)
         if not approved_channel:
             await interaction.response.send_message("Approved task showcase channel not found. Please contact support.", ephemeral=True)
+            await log_to_channel(bot, "Approved task showcase channel not found.")
             return
 
         # Send the approval message to the approved task showcase channel
@@ -612,5 +659,6 @@ class ApproveButton(Button):
         )
 
         await interaction.response.send_message("The task has been approved and posted in the approved task showcase channel.", ephemeral=True)
+        await log_to_channel(bot, f"Task ID: {task_id} approved by {interaction.user.display_name} and posted in the approved task showcase channel.")
 
 bot.run(os.getenv("TOKEN"))
