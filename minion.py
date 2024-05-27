@@ -362,7 +362,7 @@ class DepartmentSelect(discord.ui.Select):
         try:
             self.view.department = self.values[0]
             department_selection[interaction.channel_id] = self.values[0]
-            await interaction.response.send_message(f"You have selected the {self.values[0]}. Please enter the task ID for which you are submitting the work:", ephemeral=True)
+            await interaction.response.send_message(f"You have selected the {self.values[0]}. Please enter the task ID for which you are submitting the work: \n \n  💡 **Tip:** You can find the task id in the respective department's task channel 💡 ", ephemeral=True)
             
             def check(m):
                 return m.channel == interaction.channel and m.author == interaction.user
@@ -392,7 +392,7 @@ class DepartmentSelect(discord.ui.Select):
                         "task_description": task_description,
                         "department": department
                     }
-                    await interaction.channel.send(f"Task ID: {task_id}\nTask Description: {task_description}\nPlease submit your work.")
+                    await interaction.channel.send(f"Task ID: {task_id}\nTask Description: {task_description}\n\nPlease submit your work.\n\n💡 **Tip:** If you are trying to upload a file as your submission, please note that I cannot process the file directly. Instead, provide a link to the file on a drive with public access enabled, and I can update your submission accordingly. 💡")
                     await self.wait_for_submission(interaction)
                 else:
                     await interaction.channel.send(f"Task ID {task_id} not found in the {department} tasks.")
@@ -413,7 +413,7 @@ class DepartmentSelect(discord.ui.Select):
             task_details[interaction.channel_id]["submission"] = submission_msg.content
 
             comment_view = CommentView(timeout=None)  # Disable timeout
-            await interaction.channel.send("Would you like to add a comment to your submission?", view=comment_view)
+            await interaction.channel.send("Would you like to add a comment to your submission? \n \n 💡 **Did you know?** MIN reserves the right to use your submitted content without notifying you or giving credit. If you prefer your content to be evaluated only and not used otherwise, please mention this in your comment. 💡", view=comment_view)
             await log_to_channel(bot, f"Received submission task ID: {task_details[interaction.channel_id]['task_id']}")
         except asyncio.TimeoutError:
             await interaction.channel.send("You did not submit your work in time. Please try again.")
@@ -431,15 +431,14 @@ class AddCommentButton(Button):
         super().__init__(label="Add Comment", style=ButtonStyle.blurple, custom_id="add_comment")
 
     async def callback(self, interaction: discord.Interaction):
-        await interaction.response.send_message("Please enter your comment:", ephemeral=True)
-
+        await interaction.response.send_message("Please enter your comment: ", ephemeral=True)
         def check(m):
             return m.channel == interaction.channel and m.author == interaction.user
 
         try:
             comment_msg = await bot.wait_for('message', check=check, timeout=600)
             task_details[interaction.channel_id]["comment"] = comment_msg.content
-            await interaction.channel.send("Your comment has been added.")
+            await interaction.channel.send("Thank you! \n I have noted your comment!")
             await generate_report(interaction)
         except asyncio.TimeoutError:
             await interaction.channel.send("You did not provide a comment in time. Please try again.")
@@ -725,4 +724,4 @@ async def clear_task(ctx, task_id: str):
         await ctx.send(f"Task ID {task_id} was not found in the task-ids channel.")
 
 
-
+bot.run(os.getenv("TOKEN"))
