@@ -550,7 +550,9 @@ class DepartmentView(discord.ui.View):
     async def interaction_check(self, interaction: discord.Interaction) -> bool:
         # Optional: Implement custom logic to check the interaction
         return True
+    
 
+#APPROVE
 class ApproveButton(Button):
     def __init__(self):
         super().__init__(label="Approve ✅", style=ButtonStyle.green, custom_id="approve")
@@ -587,31 +589,32 @@ class ApproveButton(Button):
             task_content_line = message_content[8].strip()
 
             # Debug each part
-            print(f"Trying to parse department: {department_line}")
+            await log_to_channel(bot, f"Trying to parse department: {department_line}")
             if not department_line.startswith("**Department:**"):
                 raise ValueError(f"Unexpected format for department line: {department_line}")
             department = department_line.split("**Department:** ", 1)[1].strip()
 
-            print(f"Trying to parse task description: {task_description_line}")
+            await log_to_channel(bot, f"Trying to parse task description: {task_description_line}")
             if not task_description_line.startswith("**Task Name:**"):
                 raise ValueError(f"Unexpected format for task description line: {task_description_line}")
             task_description = task_description_line.split("**Task Name:** ", 1)[1].strip()
 
-            print(f"Trying to parse task ID: {task_id_line}")
+            await log_to_channel(bot, f"Trying to parse task ID: {task_id_line}")
             if not task_id_line.startswith("**Task ID:**"):
+                await log_to_channel(bot, f"Problematic Task ID Line: {task_id_line}")
                 raise ValueError(f"Unexpected format for task ID line: {task_id_line}")
             task_id = task_id_line.split("**Task ID:** ", 1)[1].strip()
 
-            print(f"Trying to parse task content: {task_content_line}")
+            await log_to_channel(bot, f"Trying to parse task content: {task_content_line}")
             if not task_content_line.startswith("**Task:**"):
                 raise ValueError(f"Unexpected format for task content line: {task_content_line}")
             task_content = task_content_line.split("**Task:** ", 1)[1].strip()
 
             # Debug each parsed value
-            print(f"Department: {department}")
-            print(f"Task Description: {task_description}")
-            print(f"Task ID: {task_id}")
-            print(f"Task Content: {task_content}")
+            await log_to_channel(bot, f"Department: {department}")
+            await log_to_channel(bot, f"Task Description: {task_description}")
+            await log_to_channel(bot, f"Task ID: {task_id}")
+            await log_to_channel(bot, f"Task Content: {task_content}")
 
         except (IndexError, ValueError) as e:
             print(f"Error parsing message content: {e}")
@@ -637,7 +640,7 @@ class ApproveButton(Button):
             await interaction.response.send_message("Department role not found. Please contact support.", ephemeral=True)
             return
 
-        approved_channel = bot.get_channel(1233852997797417030)
+        approved_channel = bot.get_channel(1241590035464192080)
         if not approved_channel:
             await interaction.response.send_message("Approved task showcase channel not found. Please contact support.", ephemeral=True)
             await log_to_channel(bot, "Approved task showcase channel not found.")
@@ -659,6 +662,75 @@ class ApproveButton(Button):
 
         await interaction.response.send_message("The task has been approved and posted in the approved task showcase channel.", ephemeral=True)
         await log_to_channel(bot, f"Task ID: {task_id} approved by {interaction.user.display_name} and posted in the approved task showcase channel.")
+
+
+
+#temporary approval
+@bot.command()
+async def approve(ctx, message_id: int):
+    """Approves a task based on the message ID, can only be used by executives or bot helpers."""
+    # Check if the command is run in a thread
+    if not isinstance(ctx.channel, discord.Thread):
+        await ctx.send("This command can only be run within a thread.")
+        return
+
+    # Check if the user has the required roles
+    allowed_roles = {1239882455067000955, 1232694582114783232}
+    user_roles = {role.id for role in ctx.author.roles}
+
+    if not allowed_roles.intersection(user_roles):
+        await ctx.send("You do not have permission to approve tasks.")
+        return
+
+    # Find the message in the thread
+    try:
+        message = await ctx.channel.fetch_message(message_id)
+    except discord.NotFound:
+        await ctx.send("Message not found.")
+        return
+
+    # Extract task description from the message
+    task_description = message.content
+
+    # Define department roles mapping
+    temp_department_roles = {
+        "Content Department": 1231624847855980635,
+        "Graph/IT Department": 1231625024461344840,
+        "ETA Department": 1231624980547113052,
+        "Event Moderation Department": 1231624922393088081
+    }
+
+    # Determine the department based on the category of the thread
+    category_name = ctx.channel.category.name if ctx.channel.category else None
+    department_role_id = temp_department_roles.get(category_name)
+
+    if not department_role_id:
+        await ctx.send("Department role not found. Please contact support.")
+        return
+
+    # Get the approved task showcase channel
+    approved_channel = bot.get_channel(1233852997797417030)
+    if not approved_channel:
+        await ctx.send("Approved task showcase channel not found. Please contact support.")
+        return
+
+    # Send the approval message to the approved task showcase channel
+    approved_message = await approved_channel.send(
+        f"<@&{department_role_id}>, an executive has approved a task!\n\n"
+        f"**Task Description:** Check the thread for discussion and approved task description\n\n"
+        f"**Approved by:** {ctx.author.display_name}"
+    )
+
+    # Create a thread in the approved message and post the task for discussion
+    discussion_thread = await approved_message.create_thread(name=f"Task Discussion")
+    await discussion_thread.send(
+        f"**Task:** {task_description}\n\n"
+        f"Feel free to discuss the approved task here."
+    )
+
+    await ctx.send("The task has been approved and posted in the approved task showcase channel.")
+    await log_to_channel(bot, f"Task approved by {ctx.author.display_name} and posted in the approved task showcase channel.")
+
 
 # CLEAR TASK
 @bot.command()
