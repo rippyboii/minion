@@ -640,7 +640,7 @@ class ApproveButton(Button):
             await interaction.response.send_message("Department role not found. Please contact support.", ephemeral=True)
             return
 
-        approved_channel = bot.get_channel(1241590035464192080)
+        approved_channel = bot.get_channel(1233852997797417030)
         if not approved_channel:
             await interaction.response.send_message("Approved task showcase channel not found. Please contact support.", ephemeral=True)
             await log_to_channel(bot, "Approved task showcase channel not found.")
